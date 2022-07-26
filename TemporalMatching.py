@@ -144,7 +144,7 @@ def indeplist(Delta,M): #checks if M is a matching
             if not(indep(Delta,M[i],M[j])):return False
     return True
 
-def pLS(Delta,L,sort = False,p=2,start = False,verbose = False):
+def old_pLS(Delta,L,sort = False,p=2,start = False,verbose = False):
     T,V,E = L
     E = sorted(E)
     if not start: 
@@ -179,4 +179,115 @@ def pLS(Delta,L,sort = False,p=2,start = False,verbose = False):
                                 print(Y)
                                 print()
                             break
+    return M
+
+def TOC(L):
+    """
+    L = (T,V,E), assuming E is ordered chronolocically,
+    returns a list, for each timestep t gives the index at which t starts (like a table of content)
+    """
+    (T,V,E) = L
+    res = [0]
+    current_t = 0
+    n = len(E)
+    for i in range(n):
+        if E[i][0] != current_t:
+            while E[i][0]-current_t > 0:
+                current_t += 1
+                res.append(i)
+    return res + [n]*(T-len(res)+1)
+
+
+def Xfinder(Delta,T,Q,p,idx,toc,res,verbose = False):
+    """
+    Q = list of edges (sorted chronologically)
+    t = remaining numbre of edges to add
+    idx = index of last added edge in Q
+    toc = given time t, toc[t] = index at which Q[index][0] == t
+    rho = function that given v,t says if t,v is in res
+    res = list of current  candidate improving set (all edges are independent)
+    
+    enumerates all possibles improving sets of size t 
+    
+    """
+    if verbose:
+        print("call")
+        print(p)
+        print(idx)
+        print(res)
+        
+    if p == 0:
+        yield res
+        
+    else:
+        i = idx+1
+        
+        if res == []:
+            lastidx = toc[-1]
+        else :
+            last_t = min(T,(res[-1][0]+Delta))
+            lastidx = toc[last_t]
+        while i < lastidx:
+            t,e = Q[i]
+            i += 1
+            
+            cond = True #boolean should we add x = t,e to the res
+            for edge in res:
+                if not cond : break
+                cond = cond & indep(Delta,edge,(t,e))
+                
+            if cond:
+                for X in Xfinder(Delta,T,Q,p-1,i,toc,res+[(t,e)],verbose):
+                    yield X
+
+def pLS(Delta,L,sort = False,p=2,start = False,verbose = False,infinite_loop = 0):
+    """
+    Compute a maximal temporal matching using Local Search
+    """
+    T,V,E = L
+    
+    if infinite_loop != 0 : failsafe = {e:0 for e in E}
+    
+    if not start: 
+        M = []
+        Q = E
+        
+    else: #initialize M to some matching
+        M = Greedy(Delta,L,sort = sort_time_global_degree)
+        Q = [e for e in E if e not in M]
+            
+    toc = TOC((T,V,Q))
+    cond = True
+    while cond:
+        cond = False
+        breakcond = False
+        for t in range(1,p+1):
+            if breakcond: break
+                
+            for X in Xfinder(Delta,T,Q,t,0,toc,[]):
+                if breakcond : break
+                Y = Yfinder(Delta,X,M)
+
+                if order(Y,X,sort,Graph = L): #checks if X is an improving set
+                    failcond = True
+                    if infinite_loop != 0:
+                        
+                        for e in X:
+                            failcond = failcond & (failsafe[e] < infinite_loop)
+                        if failcond:
+                            for e in X:
+                                failsafe[e] += 1
+                                
+                    if failcond:
+                        M = [m for m in M if m not in Y] + X #M <- M\Y U X
+                        Q = [e for e in E if e not in M] # update Q
+                        toc = TOC((T,V,Q))
+
+                        breakcond = True
+                        cond = True
+                        if verbose:
+                                print(X)
+                                print(Y)
+                                print()
+
     return M
