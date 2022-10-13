@@ -237,8 +237,8 @@ def Xfinder(Delta,T,Q,p,idx,toc,res,verbose = False):
                 cond = cond & indep(Delta,edge,(t,e))
                 
             if cond:
-                for X in Xfinder(Delta,T,Q,p-1,i,toc,res+[(t,e)],verbose):
-                    yield X
+                yield from Xfinder(Delta,T,Q,p-1,i,toc,res+[(t,e)],verbose):
+                    
 
 def pLS(Delta,L,sort = False,p=2,start = False,verbose = False,infinite_loop = 0):
     """
